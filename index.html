@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111827">
-    <title>馬賽名單傳遞系統 - V 1.0081</title>
+    <title>馬賽名單傳遞系統 - V 1.009</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- SortableJS for Drag and Drop -->
@@ -148,7 +148,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 relative overflow-hidden text-base">
+<body class="min-h-[100dvh] w-full flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 relative overflow-hidden text-base">
 
     <!-- Orientation Warning Overlay -->
     <div id="orientation-warning">
@@ -158,7 +158,7 @@
     </div>
 
     <!-- Theme Toggle Button -->
-    <button onclick="toggleTheme()" class="absolute top-4 right-4 z-50 p-3 bg-gray-800 rounded-full border border-gray-700 text-yellow-400 hover:text-white shadow-lg transition-all" title="切換顯示主題">
+    <button onclick="toggleTheme()" class="fixed bottom-4 right-4 z-50 p-3 bg-gray-800 rounded-full border border-gray-700 text-yellow-400 hover:text-white shadow-lg transition-all" title="切換顯示主題">
         <i id="theme-icon" class="fas fa-sun text-xl"></i>
     </button>
 
@@ -167,7 +167,7 @@
     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
     
     <!-- App Container -->
-    <div id="app" class="w-[95%] max-w-4xl relative z-10 flex flex-col h-[95vh] sm:h-[90vh]">
+    <div id="app" class="w-[95%] max-w-4xl relative z-10 flex flex-col h-[98dvh] sm:h-[90dvh] mt-2 sm:mt-0">
         <!-- Header Loading -->
         <div class="text-center mb-2 flex-none">
              <div id="loading-screen" class="flex flex-col items-center justify-center space-y-4 py-8">
@@ -227,12 +227,15 @@
             </div>
 
             <!-- Reception Tabs -->
-            <div class="flex space-x-1 mb-2 flex-none">
-                <button onclick="switchReceptionTab('input')" id="rec-tab-input" class="flex-1 py-3 text-base font-bold transition-colors tab-active">
-                    <i class="fas fa-edit mr-1"></i> 新增簽到
+            <div class="flex space-x-1 mb-2 flex-none overflow-x-auto whitespace-nowrap">
+                <button onclick="switchReceptionTab('input')" id="rec-tab-input" class="flex-1 py-3 px-1 text-sm sm:text-base font-bold transition-colors tab-active">
+                    <i class="fas fa-edit mr-1"></i> 新增
                 </button>
-                <button onclick="switchReceptionTab('list')" id="rec-tab-list" class="flex-1 py-3 text-base font-bold transition-colors tab-inactive">
-                    <i class="fas fa-list mr-1"></i> 未介紹名單 <span id="reception-count" class="ml-1 bg-gray-700 text-cyan-300 text-xs px-1.5 py-0.5 rounded-full">0</span>
+                <button onclick="switchReceptionTab('list')" id="rec-tab-list" class="flex-1 py-3 px-1 text-sm sm:text-base font-bold transition-colors tab-inactive">
+                    <i class="fas fa-list mr-1"></i> 未介紹 <span id="reception-count" class="ml-1 bg-gray-700 text-cyan-300 text-xs px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+                <button onclick="switchReceptionTab('introduced')" id="rec-tab-introduced" class="flex-1 py-3 px-1 text-sm sm:text-base font-bold transition-colors tab-inactive">
+                    <i class="fas fa-check-double mr-1"></i> 已介紹 <span id="reception-count-intro" class="ml-1 bg-gray-700 text-emerald-300 text-xs px-1.5 py-0.5 rounded-full">0</span>
                 </button>
             </div>
 
@@ -282,6 +285,13 @@
             <!-- Tab Content: List (Hidden by default) -->
             <div id="rec-content-list" class="bg-gray-800 border border-gray-700 rounded-xl p-2 flex-1 overflow-y-auto hidden">
                 <div id="reception-list-container" class="space-y-2 pb-16">
+                    <!-- Items injected here -->
+                </div>
+            </div>
+            
+            <!-- Tab Content: Introduced (Hidden by default) -->
+            <div id="rec-content-introduced" class="bg-gray-800 border border-gray-700 rounded-xl p-2 flex-1 overflow-y-auto hidden">
+                <div id="reception-intro-list-container" class="space-y-2 pb-16">
                     <!-- Items injected here -->
                 </div>
             </div>
@@ -371,7 +381,7 @@
         <!-- Footer Info -->
         <div class="flex-none mt-2 text-center pb-2 safe-area-pb">
             <p class="text-gray-600 text-[10px] font-mono">
-                開發：馬賽國小 資訊組 | <span id="app-version">V 1.0081</span>
+                開發：馬賽國小 資訊組 | <span id="app-version">V 1.009</span>
             </p>
         </div>
 
@@ -402,12 +412,13 @@
         const COLLECTION_NAME = 'guests'; 
         
         // Version Control
-        const APP_VERSION = "V 1.0081";
+        const APP_VERSION = "V 1.009";
         document.getElementById('app-version').innerText = APP_VERSION;
 
         // --- App State ---
         let currentUser = null;
         let allGuests = [];
+        let preloadData = []; // 暫存從 Google Sheets 抓取的原始名單
         let hostTabState = 'waiting';
         let receptionTabState = 'input';
         let sortableInstance = null;
@@ -444,7 +455,6 @@
         // --- Core Logic ---
         const initApp = async () => {
             try {
-                // 直接使用匿名登入
                 await signInAnonymously(auth);
 
                 onAuthStateChanged(auth, (user) => {
@@ -463,7 +473,15 @@
 
             } catch (error) {
                 console.error("Auth Error:", error);
-                document.querySelector('#loading-screen p').innerText = "連線失敗，請重新整理網頁";
+                
+                let errorText = "連線失敗，請重新整理網頁";
+                if (error.code === 'auth/operation-not-allowed') {
+                    errorText = "連線失敗：請至 Firebase 後台啟用「匿名 (Anonymous)」登入";
+                } else if (error.code) {
+                    errorText = `連線失敗 (${error.code})`;
+                }
+                
+                document.querySelector('#loading-screen p').innerText = errorText;
                 document.querySelector('#loading-screen p').classList.replace('text-cyan-400', 'text-red-400');
             }
         };
@@ -493,7 +511,7 @@
             });
         }
 
-        // Create Item
+        // Create Item (Manual check-in)
         window.handleCheckIn = async (e) => {
             e.preventDefault();
             const titleInput = document.getElementById('input-title');
@@ -501,8 +519,18 @@
             const btn = e.target.querySelector('button');
             const successMsg = document.getElementById('success-msg');
 
-            if (!titleInput.value.trim() || !nameInput.value.trim()) return;
+            const tVal = titleInput.value.trim();
+            const nVal = nameInput.value.trim();
+
+            if (!tVal || !nVal) return;
             if (!currentUser) return;
+
+            // 檢查重複：若職稱與姓名完全相符，則阻擋寫入
+            const isDuplicate = allGuests.some(g => g.title === tVal && g.name === nVal);
+            if (isDuplicate) {
+                alert("該來賓已存在名單中（未介紹或已介紹），無法重複新增！");
+                return;
+            }
 
             const originalBtnText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>處理中...';
@@ -510,10 +538,9 @@
 
             try {
                 const newOrder = Date.now(); 
-
                 await addDoc(itemsCollection, {
-                    title: titleInput.value.trim(),
-                    name: nameInput.value.trim(),
+                    title: tVal,
+                    name: nVal,
                     status: 'waiting',
                     customOrder: newOrder,
                     createdAt: serverTimestamp(),
@@ -564,36 +591,69 @@
                 text = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
                 const data = JSON.parse(text);
                 
-                container.innerHTML = '';
-                
+                preloadData = [];
                 if (data.table && data.table.rows && data.table.rows.length > 0) {
                     data.table.rows.forEach(row => {
                         const title = row.c[0] ? (row.c[0].v || '') : '';
                         const name = row.c[1] ? (row.c[1].v || '') : '';
-                        
                         if (title === '職稱' || name === '姓名') return;
 
                         if (title || name) {
-                            const btn = document.createElement('button');
-                            btn.className = 'bg-gray-800 text-left text-white text-sm py-2 px-3 rounded-lg border border-gray-600 hover:border-cyan-400 hover:bg-gray-700 transition-colors shadow-sm active:scale-95 flex-none max-w-full';
-                            btn.onclick = function() { window.quickCheckIn(title, name, this); };
-                            btn.innerHTML = `<span class="text-cyan-400 mr-2 text-xs opacity-80">${title}</span><span class="font-bold">${name}</span>`;
-                            container.appendChild(btn);
+                            preloadData.push({ title: title.toString().trim(), name: name.toString().trim() });
                         }
                     });
-                } else {
-                     container.innerHTML = '<div class="text-gray-500 text-xs w-full">試算表內目前無資料。</div>';
-                }
+                } 
+                
+                renderPreloadList();
             } catch (error) {
                 console.error('Fetch error:', error);
                 container.innerHTML = '<div class="text-red-400 text-xs w-full bg-red-900/30 p-2 rounded border border-red-800">讀取失敗，請確認該試算表共用設定已開啟「知道連結的使用者皆可查看」。</div>';
             }
         };
 
+        // 獨立渲染預先輸入名單，方便過濾已存在的來賓
+        function renderPreloadList() {
+            const container = document.getElementById('preload-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (preloadData.length === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-xs w-full">試算表內目前無資料或尚未讀取。</div>';
+                return;
+            }
+
+            let addedCount = 0;
+            preloadData.forEach(guest => {
+                // 檢查是否已在系統名單中 (未介紹或已介紹)
+                const isDuplicate = allGuests.some(g => g.title === guest.title && g.name === guest.name);
+                
+                // 已經在名單內就跳過，不顯示按鈕
+                if (isDuplicate) return;
+
+                const btn = document.createElement('button');
+                btn.className = 'bg-gray-800 text-left text-white text-sm py-2 px-3 rounded-lg border border-gray-600 hover:border-cyan-400 hover:bg-gray-700 transition-colors shadow-sm active:scale-95 flex-none max-w-full';
+                btn.onclick = function() { window.quickCheckIn(guest.title, guest.name, this); };
+                btn.innerHTML = `<span class="text-cyan-400 mr-2 text-xs opacity-80">${guest.title}</span><span class="font-bold">${guest.name}</span>`;
+                container.appendChild(btn);
+                addedCount++;
+            });
+
+            if (addedCount === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-xs w-full"><i class="fas fa-check-circle text-emerald-500 mr-1"></i>名單內的人員皆已報到完畢。</div>';
+            }
+        }
+
         // Quick Check-In from Preload List
         window.quickCheckIn = async (title, name, btnEl) => {
             if (!currentUser) {
                 alert("未連線至資料庫");
+                return;
+            }
+            
+            // 雙重檢查機制
+            if (allGuests.some(g => g.title === title && g.name === name)) {
+                alert("該來賓已存在名單中！");
+                renderPreloadList(); // 重新渲染刷新畫面
                 return;
             }
             
@@ -611,10 +671,6 @@
                     createdAt: serverTimestamp(),
                     createdBy: currentUser.uid
                 });
-                
-                btnEl.classList.remove('bg-gray-800', 'hover:bg-gray-700', 'hover:border-cyan-400');
-                btnEl.classList.add('bg-green-900/80', 'border-green-600', 'opacity-60', 'cursor-not-allowed');
-                btnEl.innerHTML = `<i class="fas fa-check mr-1 text-green-400"></i><span class="line-through">${name}</span>`;
                 
                 const successMsg = document.getElementById('success-msg');
                 successMsg.classList.remove('hidden');
@@ -670,6 +726,18 @@
                     }
                 }
             );
+        };
+        
+        // 主持端專用的無密碼直接刪除功能
+        window.directDelete = async (id) => {
+            if (confirm("確定要將此來賓從【已介紹名單】中徹底刪除嗎？\n(此動作無法復原)")) {
+                try {
+                    await deleteDoc(doc(itemsCollection, id));
+                } catch (error) {
+                    console.error("Delete failed:", error);
+                    alert("刪除失敗");
+                }
+            }
         };
 
         window.requestClearAll = () => {
@@ -766,24 +834,27 @@
 
         window.switchReceptionTab = (tab) => {
             receptionTabState = tab;
-            const tabInput = document.getElementById('rec-tab-input');
-            const tabList = document.getElementById('rec-tab-list');
-            const contentInput = document.getElementById('rec-content-input');
-            const contentList = document.getElementById('rec-content-list');
+            const tabs = {
+                'input': { btn: 'rec-tab-input', content: 'rec-content-input', activeClass: 'tab-active', flex: true },
+                'list': { btn: 'rec-tab-list', content: 'rec-content-list', activeClass: 'tab-active', flex: false },
+                'introduced': { btn: 'rec-tab-introduced', content: 'rec-content-introduced', activeClass: 'tab-active', flex: false }
+            };
 
-            if (tab === 'input') {
-                tabInput.className = 'flex-1 py-3 text-base font-bold transition-colors tab-active';
-                tabList.className = 'flex-1 py-3 text-base font-bold transition-colors tab-inactive';
-                contentInput.classList.remove('hidden');
-                contentInput.classList.add('flex');
-                contentList.classList.add('hidden');
-            } else {
-                tabInput.className = 'flex-1 py-3 text-base font-bold transition-colors tab-inactive';
-                tabList.className = 'flex-1 py-3 text-base font-bold transition-colors tab-active';
-                contentInput.classList.add('hidden');
-                contentInput.classList.remove('flex');
-                contentList.classList.remove('hidden');
-            }
+            Object.keys(tabs).forEach(k => {
+                const t = tabs[k];
+                const btnEl = document.getElementById(t.btn);
+                const contentEl = document.getElementById(t.content);
+                
+                if (k === tab) {
+                    btnEl.className = `flex-1 py-3 px-1 text-sm sm:text-base font-bold transition-colors ${t.activeClass}`;
+                    contentEl.classList.remove('hidden');
+                    if(t.flex) contentEl.classList.add('flex');
+                } else {
+                    btnEl.className = `flex-1 py-3 px-1 text-sm sm:text-base font-bold transition-colors tab-inactive`;
+                    contentEl.classList.add('hidden');
+                    if(t.flex) contentEl.classList.remove('flex');
+                }
+            });
         };
 
         function renderGuests() {
@@ -791,12 +862,16 @@
             const hostListIntroduced = document.getElementById('host-list-introduced');
             const badgeWaiting = document.getElementById('count-waiting-badge');
             const badgeIntroduced = document.getElementById('count-introduced-badge');
+            
             const receptionListContainer = document.getElementById('reception-list-container');
+            const receptionIntroListContainer = document.getElementById('reception-intro-list-container');
             const receptionCount = document.getElementById('reception-count');
+            const receptionCountIntro = document.getElementById('reception-count-intro');
 
             hostListWaiting.innerHTML = '';
             hostListIntroduced.innerHTML = '';
             receptionListContainer.innerHTML = '';
+            receptionIntroListContainer.innerHTML = '';
 
             let cWait = 0;
             let cIntro = 0;
@@ -804,7 +879,9 @@
             allGuests.forEach(guest => {
                 const isIntroduced = guest.status === 'introduced';
 
+                // ================= Reception 端渲染 =================
                 if (!isIntroduced) {
+                    // 未介紹 (接待端)
                     const recItem = document.createElement('div');
                     recItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm';
                     recItem.innerHTML = `
@@ -817,8 +894,21 @@
                         </button>
                     `;
                     receptionListContainer.appendChild(recItem);
+                } else {
+                    // 已介紹 (接待端)
+                    const recIntroItem = document.createElement('div');
+                    recIntroItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm opacity-60';
+                    recIntroItem.innerHTML = `
+                        <div class="overflow-hidden flex-1 mr-2">
+                            <div class="text-yellow-400 font-bold text-lg break-words">${guest.title}</div>
+                            <div class="text-gray-300 text-base break-words">${guest.name}</div>
+                        </div>
+                        <div class="text-emerald-500 mr-2"><i class="fas fa-check-double text-xl"></i></div>
+                    `;
+                    receptionIntroListContainer.appendChild(recIntroItem);
                 }
 
+                // ================= Host 端渲染 =================
                 const card = document.createElement('div');
                 card.setAttribute('data-id', guest.id); 
                 
@@ -841,8 +931,9 @@
                     ? '<i class="fas fa-undo text-gray-500 text-xl"></i>'
                     : '<i class="fas fa-check text-cyan-500 text-3xl opacity-50"></i>';
 
+                // 主持端已介紹列表，刪除不需密碼，直接呼叫 directDelete
                 const deleteBtnHost = isIntroduced
-                    ? `<div onclick="event.stopPropagation(); requestDelete('${guest.id}', '333')" class="flex-none ml-4 text-gray-600 hover:text-red-500 p-2 cursor-pointer z-20"><i class="fas fa-trash-alt"></i></div>`
+                    ? `<div onclick="event.stopPropagation(); directDelete('${guest.id}')" class="flex-none ml-4 text-gray-600 hover:text-red-500 p-2 cursor-pointer z-20"><i class="fas fa-trash-alt"></i></div>`
                     : '';
 
                 card.innerHTML = `
@@ -871,6 +962,10 @@
             badgeWaiting.innerText = cWait;
             badgeIntroduced.innerText = cIntro;
             receptionCount.innerText = cWait;
+            receptionCountIntro.innerText = cIntro;
+
+            // 每次渲染來賓後，同步過濾預先輸入名單，把已經簽到的按鈕隱藏
+            renderPreloadList();
 
             if (!sortableInstance && document.getElementById('host-list-waiting')) {
                 sortableInstance = new Sortable(document.getElementById('host-list-waiting'), {
