@@ -330,8 +330,8 @@
                 <div class="flex items-center space-x-3">
                     <div class="text-xs text-gray-500 font-mono" id="clock">00:00</div>
                     <!-- Clear All Button -->
-                    <button onclick="requestClearAll()" class="text-red-900 hover:text-red-500 transition-colors p-1" title="全部清除">
-                        <i class="fas fa-dumpster-fire"></i>
+                    <button onclick="requestClearAll()" class="text-red-500 hover:text-white bg-red-900/30 border border-red-900/50 rounded px-2 py-1 flex items-center transition-colors shadow-sm" title="全部清除">
+                        <i class="fas fa-dumpster-fire mr-1"></i><span class="text-xs font-bold tracking-wider">全刪</span>
                     </button>
                 </div>
             </div>
@@ -686,7 +686,7 @@
         // --- Modal & Deletion Logic ---
 
         window.openPasswordModal = (desc, password, action) => {
-            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('modal-desc').innerHTML = desc;
             document.getElementById('modal-password').value = '';
             document.getElementById('modal-error').innerText = '';
             document.getElementById('password-modal').classList.remove('hidden');
@@ -742,7 +742,7 @@
 
         window.requestClearAll = () => {
             window.openPasswordModal(
-                "警告：即將清空「所有」名單！此動作極度危險且無法復原。",
+                "警告：即將清空「所有」名單！此動作極度危險且無法復原。<br><span class='text-emerald-400 font-bold mt-2 block'>提示：四個4</span>",
                 "4444",
                 async () => {
                     try {
@@ -928,12 +928,12 @@
                     : '';
 
                 const statusIcon = isIntroduced 
-                    ? '<i class="fas fa-undo text-gray-500 text-xl"></i>'
+                    ? `<div onclick="event.stopPropagation(); window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')" class="p-3 sm:p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-600 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm"><i class="fas fa-undo text-gray-400 text-xl sm:text-2xl mb-1"></i><span class="text-xs text-gray-400 font-bold whitespace-nowrap">回未介紹</span></div>`
                     : '<i class="fas fa-check text-cyan-500 text-3xl opacity-50"></i>';
 
                 // 主持端已介紹列表，刪除不需密碼，直接呼叫 directDelete
                 const deleteBtnHost = isIntroduced
-                    ? `<div onclick="event.stopPropagation(); directDelete('${guest.id}')" class="flex-none ml-4 text-gray-600 hover:text-red-500 p-2 cursor-pointer z-20"><i class="fas fa-trash-alt"></i></div>`
+                    ? `<div onclick="event.stopPropagation(); directDelete('${guest.id}')" class="flex-none ml-2 p-3 sm:p-4 bg-red-900/30 hover:bg-red-500 rounded-lg border border-red-900/50 hover:border-red-500 flex flex-col items-center justify-center cursor-pointer z-20 transition-colors shadow-sm group"><i class="fas fa-trash-alt text-red-500 group-hover:text-white text-xl sm:text-2xl mb-1"></i><span class="text-xs text-red-500 group-hover:text-white font-bold whitespace-nowrap">刪除</span></div>`
                     : '';
 
                 card.innerHTML = `
@@ -943,8 +943,8 @@
                             <div class="font-bold text-3xl sm:text-4xl break-words leading-tight ${isIntroduced ? 'text-yellow-400' : 'text-cyan-300'}" style="word-break: break-word;">${guest.title}</div>
                             <div class="text-2xl sm:text-3xl mt-1 break-words leading-tight text-white" style="word-break: break-word;">${guest.name}</div>
                         </div>
-                        <div class="flex-none pt-1 flex items-center space-x-2">
-                            <div onclick="window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')">${statusIcon}</div>
+                        <div class="flex-none pt-1 flex items-stretch h-full">
+                            ${isIntroduced ? statusIcon : `<div class="flex items-center" onclick="window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')">${statusIcon}</div>`}
                             ${deleteBtnHost}
                         </div>
                     </div>
