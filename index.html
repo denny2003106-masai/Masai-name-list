@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111827">
-    <title>馬賽名單傳遞系統 - V 1.009</title>
+    <title>馬賽名單傳遞系統 - V 2.001</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- SortableJS for Drag and Drop -->
@@ -180,7 +180,7 @@
         <div id="home-view" class="hidden text-center space-y-6 animate-fade-in flex-1 flex flex-col justify-center px-4">
             <!-- Title -->
             <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400 mb-4 tracking-wider leading-tight break-words">
-                名單傳遞系統
+                馬賽名單傳遞系統
             </h1>
             
             <div class="grid grid-cols-1 gap-4 w-full max-w-sm mx-auto">
@@ -307,7 +307,8 @@
                 <i class="fas fa-lock text-4xl text-emerald-400 mb-4"></i>
                 <h2 class="text-xl text-white font-bold mb-6">SECURITY ACCESS</h2>
                 
-                <input type="password" id="host-password" inputmode="numeric" pattern="[0-9]*" class="w-full bg-gray-900 text-center text-white border border-emerald-500/50 rounded p-4 mb-4 focus:outline-none focus:border-emerald-400 tracking-widest text-2xl" placeholder="PASSCODE">
+                <input type="password" id="host-password" inputmode="numeric" pattern="[0-9]*" class="w-full bg-gray-900 text-center text-white border border-emerald-500/50 rounded p-4 mb-1 focus:outline-none focus:border-emerald-400 tracking-widest text-2xl" placeholder="PASSCODE">
+                <p class="text-emerald-300 text-xs mb-4">提示：3個3</p>
                 
                 <button onclick="verifyHost()" class="btn-tech w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg text-lg">
                     ACCESS
@@ -381,7 +382,8 @@
         <!-- Footer Info -->
         <div class="flex-none mt-2 text-center pb-2 safe-area-pb">
             <p class="text-gray-600 text-[10px] font-mono">
-                版本 <span id="app-version">V 1.009</span>
+                <span>開發：馬賽國小 資訊組</span><br>
+                版本 <span id="app-version">V 2.001</span>
             </p>
         </div>
 
@@ -412,7 +414,7 @@
         const COLLECTION_NAME = 'guests'; 
         
         // Version Control
-        const APP_VERSION = "V 1.009";
+        const APP_VERSION = "V 2.001";
         document.getElementById('app-version').innerText = APP_VERSION;
 
         // --- App State ---
@@ -426,6 +428,11 @@
         // --- Modal State ---
         let pendingAction = null; 
         let requiredPassword = '';
+
+        const guestKey = (title, name) => `${String(title || '').trim()}\u0000${String(name || '').trim()}`;
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[ch]));
 
         // --- Router ---
         window.router = {
@@ -525,7 +532,7 @@
             if (!tVal || !nVal) return;
             if (!currentUser) return;
 
-            const isDuplicate = allGuests.some(g => g.title === tVal && g.name === nVal);
+            const isDuplicate = allGuests.some(g => guestKey(g.title, g.name) === guestKey(tVal, nVal));
             if (isDuplicate) {
                 alert("該來賓已存在名單中（未介紹或已介紹），無法重複新增！");
                 return;
@@ -591,6 +598,7 @@
                 const data = JSON.parse(text);
                 
                 preloadData = [];
+                const preloadKeys = new Set();
                 if (data.table && data.table.rows && data.table.rows.length > 0) {
                     data.table.rows.forEach(row => {
                         const title = row.c[0] ? (row.c[0].v || '') : '';
@@ -598,7 +606,12 @@
                         if (title === '職稱' || name === '姓名') return;
 
                         if (title || name) {
-                            preloadData.push({ title: title.toString().trim(), name: name.toString().trim() });
+                            const item = { title: title.toString().trim(), name: name.toString().trim() };
+                            const key = guestKey(item.title, item.name);
+                            if (!preloadKeys.has(key)) {
+                                preloadKeys.add(key);
+                                preloadData.push(item);
+                            }
                         }
                     });
                 } 
@@ -621,14 +634,15 @@
             }
 
             let addedCount = 0;
+            const existingKeys = new Set(allGuests.map(g => guestKey(g.title, g.name)));
             preloadData.forEach(guest => {
-                const isDuplicate = allGuests.some(g => g.title === guest.title && g.name === guest.name);
+                const isDuplicate = existingKeys.has(guestKey(guest.title, guest.name));
                 if (isDuplicate) return;
 
                 const btn = document.createElement('button');
                 btn.className = 'bg-gray-800 text-left text-white text-sm py-2 px-3 rounded-lg border border-gray-600 hover:border-cyan-400 hover:bg-gray-700 transition-colors shadow-sm active:scale-95 flex-none max-w-full';
                 btn.onclick = function() { window.quickCheckIn(guest.title, guest.name, this); };
-                btn.innerHTML = `<span class="text-cyan-400 mr-2 text-xs opacity-80">${guest.title}</span><span class="font-bold">${guest.name}</span>`;
+                btn.innerHTML = `<span class="text-cyan-400 mr-2 text-xs opacity-80">${escapeHtml(guest.title)}</span><span class="font-bold">${escapeHtml(guest.name)}</span>`;
                 container.appendChild(btn);
                 addedCount++;
             });
@@ -644,7 +658,7 @@
                 return;
             }
             
-            if (allGuests.some(g => g.title === title && g.name === name)) {
+            if (allGuests.some(g => guestKey(g.title, g.name) === guestKey(title, name))) {
                 alert("該來賓已存在名單中！");
                 renderPreloadList(); 
                 return;
@@ -878,8 +892,8 @@
                     recItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm';
                     recItem.innerHTML = `
                         <div class="overflow-hidden flex-1 mr-2">
-                            <div class="text-cyan-400 font-bold text-lg break-words">${guest.title}</div>
-                            <div class="text-gray-300 text-base break-words">${guest.name}</div>
+                            <div class="text-cyan-400 font-bold text-lg break-words">${escapeHtml(guest.title)}</div>
+                            <div class="text-gray-300 text-base break-words">${escapeHtml(guest.name)}</div>
                         </div>
                         <button onclick="requestDelete('${guest.id}', '333')" class="flex-none bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-gray-700 transition-colors p-3 rounded-lg border border-gray-600">
                             <i class="fas fa-trash-alt"></i>
@@ -891,8 +905,8 @@
                     recIntroItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm opacity-60';
                     recIntroItem.innerHTML = `
                         <div class="overflow-hidden flex-1 mr-2">
-                            <div class="text-yellow-400 font-bold text-lg break-words">${guest.title}</div>
-                            <div class="text-gray-300 text-base break-words">${guest.name}</div>
+                            <div class="text-yellow-400 font-bold text-lg break-words">${escapeHtml(guest.title)}</div>
+                            <div class="text-gray-300 text-base break-words">${escapeHtml(guest.name)}</div>
                         </div>
                         <div class="text-emerald-500 mr-2"><i class="fas fa-check-double text-xl"></i></div>
                     `;
@@ -929,8 +943,8 @@
                     <div class="flex items-center justify-between w-full h-full">
                         ${dragHandle}
                         <div class="flex-1 pr-2 cursor-pointer h-full flex flex-col justify-center" onclick="window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')">
-                            <div class="font-bold text-3xl sm:text-4xl break-words leading-tight ${isIntroduced ? 'text-yellow-400' : 'text-cyan-300'}" style="word-break: break-word;">${guest.title}</div>
-                            <div class="text-2xl sm:text-3xl mt-1 break-words leading-tight text-white" style="word-break: break-word;">${guest.name}</div>
+                            <div class="font-bold text-3xl sm:text-4xl break-words leading-tight ${isIntroduced ? 'text-yellow-400' : 'text-cyan-300'}" style="word-break: break-word;">${escapeHtml(guest.title)}</div>
+                            <div class="text-2xl sm:text-3xl mt-1 break-words leading-tight text-white" style="word-break: break-word;">${escapeHtml(guest.name)}</div>
                         </div>
                         <div class="flex-none pt-1 flex items-stretch h-full">
                             ${isIntroduced ? statusIcon : `<div class="flex items-center" onclick="window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')">${statusIcon}</div>`}
