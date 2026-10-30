@@ -135,14 +135,14 @@
         
         /* 手機 (最大寬度 767px 且為觸控) + 橫式 => 強制要求轉為直式 */
         @media (pointer: coarse) and (max-device-width: 767px) and (orientation: landscape) {
-            #app, .absolute.top-0, .absolute.bottom-0, .absolute.top-4 { display: none !important; }
+            #app, .fixed.bottom-4 { display: none !important; }
             #orientation-warning { display: flex !important; }
             #orientation-warning-text:after { content: '偵測到手機橫放，請將手機轉為直式 (Portrait) 瀏覽。'; }
         }
         
         /* 電腦 (非觸控滑鼠) + 直式 => 強制要求轉為橫式 */
         @media (pointer: fine) and (orientation: portrait) {
-            #app, .absolute.top-0, .absolute.bottom-0, .absolute.top-4 { display: none !important; }
+            #app, .fixed.bottom-4 { display: none !important; }
             #orientation-warning { display: flex !important; }
             #orientation-warning-text:after { content: '偵測到直式視窗，電腦版請將視窗調整為橫式 (Landscape) 瀏覽以獲得最佳體驗。'; }
         }
@@ -180,7 +180,7 @@
         <div id="home-view" class="hidden text-center space-y-6 animate-fade-in flex-1 flex flex-col justify-center px-4">
             <!-- Title -->
             <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400 mb-4 tracking-wider leading-tight break-words">
-                馬賽名單傳遞系統
+                名單傳遞系統
             </h1>
             
             <div class="grid grid-cols-1 gap-4 w-full max-w-sm mx-auto">
@@ -219,7 +219,7 @@
                     <i class="fas fa-arrow-left"></i> 主選單
                 </button>
                 <div class="flex items-center space-x-3">
-                    <a href="https://docs.google.com/spreadsheets/d/1C12hARLyp9csxwLTtJmYPu6ATRJRCCo7cif7r3s4JZ4/edit" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-colors">
+                    <a href="https://docs.google.com/spreadsheets/d/1C12hARLyp9csxwLTtJmYPu6ATRJRCCo7cif7r3s4JZ4/edit?usp=sharing" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-colors">
                         <i class="fas fa-file-excel mr-1"></i>名單設定
                     </a>
                     <h2 class="text-cyan-400 font-bold tracking-widest text-sm">>> RECEPTION</h2>
@@ -381,7 +381,7 @@
         <!-- Footer Info -->
         <div class="flex-none mt-2 text-center pb-2 safe-area-pb">
             <p class="text-gray-600 text-[10px] font-mono">
-                開發：馬賽國小 資訊組 | <span id="app-version">V 1.009</span>
+                版本 <span id="app-version">V 1.009</span>
             </p>
         </div>
 
@@ -394,7 +394,7 @@
         import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, writeBatch, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Configuration & Init ---
-        // 這裡已經換成您的 masai-name-list 專屬金鑰
+        // 請確保這裡填入您正確的 Firebase 專屬金鑰
         const firebaseConfig = {
             apiKey: "AIzaSyAPiGANMJytLAy8roar7kpCKj29M0734oY",
             authDomain: "masai-name-list.firebaseapp.com",
@@ -408,7 +408,7 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // 簡化資料庫路徑，現在所有資料會存在 Firestore 第一層的 "guests" 集合中
+        // 恢復正確的 Collection 結構，確保跨裝置同步
         const COLLECTION_NAME = 'guests'; 
         
         // Version Control
@@ -418,7 +418,7 @@
         // --- App State ---
         let currentUser = null;
         let allGuests = [];
-        let preloadData = []; // 暫存從 Google Sheets 抓取的原始名單
+        let preloadData = []; 
         let hostTabState = 'waiting';
         let receptionTabState = 'input';
         let sortableInstance = null;
@@ -474,7 +474,7 @@
             } catch (error) {
                 console.error("Auth Error:", error);
                 
-                let errorText = "連線失敗，請重新整理網頁";
+                let errorText = "連線失敗，請確認 Firebase 設定是否正確";
                 if (error.code === 'auth/operation-not-allowed') {
                     errorText = "連線失敗：請至 Firebase 後台啟用「匿名 (Anonymous)」登入";
                 } else if (error.code) {
@@ -486,7 +486,7 @@
             }
         };
 
-        // Database Subscription
+        // Database Subscription - 統一使用標準路徑
         const itemsCollection = collection(db, COLLECTION_NAME);
 
         function subscribeItems() {
@@ -525,7 +525,6 @@
             if (!tVal || !nVal) return;
             if (!currentUser) return;
 
-            // 檢查重複：若職稱與姓名完全相符，則阻擋寫入
             const isDuplicate = allGuests.some(g => g.title === tVal && g.name === nVal);
             if (isDuplicate) {
                 alert("該來賓已存在名單中（未介紹或已介紹），無法重複新增！");
@@ -611,7 +610,6 @@
             }
         };
 
-        // 獨立渲染預先輸入名單，方便過濾已存在的來賓
         function renderPreloadList() {
             const container = document.getElementById('preload-list-container');
             if (!container) return;
@@ -624,10 +622,7 @@
 
             let addedCount = 0;
             preloadData.forEach(guest => {
-                // 檢查是否已在系統名單中 (未介紹或已介紹)
                 const isDuplicate = allGuests.some(g => g.title === guest.title && g.name === guest.name);
-                
-                // 已經在名單內就跳過，不顯示按鈕
                 if (isDuplicate) return;
 
                 const btn = document.createElement('button');
@@ -643,17 +638,15 @@
             }
         }
 
-        // Quick Check-In from Preload List
         window.quickCheckIn = async (title, name, btnEl) => {
             if (!currentUser) {
                 alert("未連線至資料庫");
                 return;
             }
             
-            // 雙重檢查機制
             if (allGuests.some(g => g.title === title && g.name === name)) {
                 alert("該來賓已存在名單中！");
-                renderPreloadList(); // 重新渲染刷新畫面
+                renderPreloadList(); 
                 return;
             }
             
@@ -728,7 +721,6 @@
             );
         };
         
-        // 主持端專用的無密碼直接刪除功能
         window.directDelete = async (id) => {
             if (confirm("確定要將此來賓從【已介紹名單】中徹底刪除嗎？\n(此動作無法復原)")) {
                 try {
@@ -868,6 +860,8 @@
             const receptionCount = document.getElementById('reception-count');
             const receptionCountIntro = document.getElementById('reception-count-intro');
 
+            if (!hostListWaiting || !hostListIntroduced) return;
+
             hostListWaiting.innerHTML = '';
             hostListIntroduced.innerHTML = '';
             receptionListContainer.innerHTML = '';
@@ -879,9 +873,7 @@
             allGuests.forEach(guest => {
                 const isIntroduced = guest.status === 'introduced';
 
-                // ================= Reception 端渲染 =================
                 if (!isIntroduced) {
-                    // 未介紹 (接待端)
                     const recItem = document.createElement('div');
                     recItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm';
                     recItem.innerHTML = `
@@ -895,7 +887,6 @@
                     `;
                     receptionListContainer.appendChild(recItem);
                 } else {
-                    // 已介紹 (接待端)
                     const recIntroItem = document.createElement('div');
                     recIntroItem.className = 'flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700 shadow-sm opacity-60';
                     recIntroItem.innerHTML = `
@@ -908,7 +899,6 @@
                     receptionIntroListContainer.appendChild(recIntroItem);
                 }
 
-                // ================= Host 端渲染 =================
                 const card = document.createElement('div');
                 card.setAttribute('data-id', guest.id); 
                 
@@ -931,7 +921,6 @@
                     ? `<div onclick="event.stopPropagation(); window.toggleGuestStatus('${guest.id}', '${guest.status || 'waiting'}')" class="p-3 sm:p-4 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-600 flex flex-col items-center justify-center cursor-pointer transition-colors shadow-sm"><i class="fas fa-undo text-gray-400 text-xl sm:text-2xl mb-1"></i><span class="text-xs text-gray-400 font-bold whitespace-nowrap">回未介紹</span></div>`
                     : '<i class="fas fa-check text-cyan-500 text-3xl opacity-50"></i>';
 
-                // 主持端已介紹列表，刪除不需密碼，直接呼叫 directDelete
                 const deleteBtnHost = isIntroduced
                     ? `<div onclick="event.stopPropagation(); directDelete('${guest.id}')" class="flex-none ml-2 p-3 sm:p-4 bg-red-900/30 hover:bg-red-500 rounded-lg border border-red-900/50 hover:border-red-500 flex flex-col items-center justify-center cursor-pointer z-20 transition-colors shadow-sm group"><i class="fas fa-trash-alt text-red-500 group-hover:text-white text-xl sm:text-2xl mb-1"></i><span class="text-xs text-red-500 group-hover:text-white font-bold whitespace-nowrap">刪除</span></div>`
                     : '';
@@ -964,7 +953,6 @@
             receptionCount.innerText = cWait;
             receptionCountIntro.innerText = cIntro;
 
-            // 每次渲染來賓後，同步過濾預先輸入名單，把已經簽到的按鈕隱藏
             renderPreloadList();
 
             if (!sortableInstance && document.getElementById('host-list-waiting')) {
